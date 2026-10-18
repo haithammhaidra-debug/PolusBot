@@ -1,0 +1,76 @@
+import discord, json, os, random
+from discord.ext import commands
+
+intents = discord.Intents.default()
+intents.message_content = True
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+SHOP = {"sword": 100, "shield": 80, "potion": 25}
+FILE = "data.json"
+
+def load():
+    if os.path.exists(FILE):
+        with open(FILE) as f:
+            return json.load(f)
+    return {}
+
+def save(data):
+    with open(FILE, "w") as f:
+        json.dump(data, f)
+
+def get_user(data, uid):
+    uid = str(uid)
+    if uid not in data:
+        data[uid] = {"coins": 100, "items": []}
+    return data[uid]
+
+@bot.event
+async def on_ready():
+    print(f"Logged in as {bot.user}")
+
+@bot.command()
+async def work(ctx):
+    data = load()
+    user = get_user(data, ctx.author.id)
+    earned = random.randint(10, 50)
+    user["coins"] += earned
+    save(data)
+    await ctx.send(f"You earned {earned} coins!")
+
+@bot.command()
+async def balance(ctx):
+    data = load()
+    user = get_user(data, ctx.author.id)
+    save(data)
+    await ctx.send(f"You have {user['coins']} coins.")
+
+@bot.command()
+async def shop(ctx):
+    lines = [f"{n}: {p} coins" for n, p in SHOP.items()]
+    await ctx.send("**Shop**\n" + "\n".join(lines) + "\nBuy with `!buy item`")
+
+@bot.command()
+async def buy(ctx, item: str):
+    item = item.lower()
+    if item not in SHOP:
+        await ctx.send("That item isn't in the shop.")
+        return
+    data = load()
+    user = get_user(data, ctx.author.id)
+    if user["coins"] < SHOP[item]:
+        await ctx.send("Not enough coins.")
+        return
+    user["coins"] -= SHOP[item]
+    user["items"].append(item)
+    save(data)
+    await ctx.send(f"You bought a {item}!")
+
+@bot.command()
+async def inventory(ctx):
+    data = load()
+    user = get_user(data, ctx.author.id)
+    save(data)
+    items = ", ".join(user["items"]) or "nothing yet"
+    await ctx.send(f"Your items: {items}")
+
+bot.run("PASTE_YOUR_TOKEN_HERE")
